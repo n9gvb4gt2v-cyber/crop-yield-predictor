@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Crop Yield Predictor</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --soil:    #2C1A0E;
+      --leaf:    #3A7D44;
+      --leaf-lt: #56A85F;
+      --wheat:   #E8C97A;
+      --cream:   #F5F0E8;
+      --mist:    #EAF2EB;
+      --border:  #D6CBBB;
+      --text:    #1C1208;
+      --muted:   #7A6A55;
+      --white:   #FFFFFF;
+      --red:     #C0392B;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--cream);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--soil);
+      padding: 20px 40px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .logo-mark {
+      width: 36px; height: 36px;
+      background: var(--leaf);
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+    }
+    header h1 {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--wheat);
+      letter-spacing: 0.04em;
+    }
+    header p {
+      font-size: 12px;
+      color: #9B8B76;
+      margin-top: 1px;
+    }
+
+    /* ── Layout ── */
+    .container {
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 0 24px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px;
+    }
+    .card-title {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Form ── */
+    .field { margin-bottom: 16px; }
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    select, input[type="number"] {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      color: var(--text);
+      background: var(--cream);
+      appearance: none;
+      transition: border-color 0.15s;
+    }
+    select:focus, input[type="number"]:focus {
+      outline: none;
+      border-color: var(--leaf);
+      background: var(--white);
+    }
+    .field-hint {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    /* ── Buttons ── */
+    .btn-group { display: flex; gap: 10px; margin-top: 24px; }
+    button {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    button:active { transform: scale(0.98); }
+    .btn-predict {
+      background: var(--leaf);
+      color: var(--white);
+    }
+    .btn-predict:hover { background: var(--leaf-lt); }
+    .btn-optimize {
+      background: var(--soil);
+      color: var(--wheat);
+    }
+    .btn-optimize:hover { opacity: 0.85; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Results panel ── */
+    .results-panel {
+      grid-column: 1 / -1;
+      display: none;
+    }
+    .results-panel.visible { display: block; }
+
+    .result-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .result-stat {
+      background: var(--mist);
+      border: 1px solid #C5DCCA;
+      border-radius: 10px;
+      padding: 18px 20px;
+    }
+    .result-stat .stat-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .result-stat .stat-value {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 28px;
+      font-weight: 600;
+      color: var(--leaf);
+      margin: 6px 0 2px;
+    }
+    .result-stat .stat-unit {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* ── Optimization box ── */
+    .optimize-result {
+      display: none;
+      background: var(--soil);
+      border-radius: 10px;
+      padding: 20px 24px;
+      color: var(--cream);
+    }
+    .optimize-result.visible { display: block; }
+    .optimize-result h3 {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--wheat);
+      margin-bottom: 14px;
+    }
+    .optimize-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+    }
+    .opt-item .opt-label {
+      font-size: 11px;
+      color: #9B8B76;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .opt-item .opt-current {
+      font-size: 13px;
+      color: #C5B49A;
+      margin-top: 4px;
+      font-family: 'IBM Plex Mono', monospace;
+    }
+    .opt-item .opt-best {
+      font-size: 18px;
+      font-family: 'IBM Plex Mono', monospace;
+      color: var(--wheat);
+      font-weight: 600;
+      margin-top: 2px;
+    }
+    .improvement-badge {
+      display: inline-block;
+      background: var(--leaf);
+      color: var(--white);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 20px;
+      margin-top: 16px;
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    /* ── Error ── */
+    .error-box {
+      display: none;
+      background: #FDF2F1;
+      border: 1px solid #E8C5C2;
+      border-radius: 8px;
+      padding: 14px 18px;
+      color: var(--red);
+      font-size: 13px;
+      margin-top: 16px;
+    }
+    .error-box.visible { display: block; }
+
+    /* ── Loading ── */
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.4);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Footer note ── */
+    .api-status {
+      grid-column: 1 / -1;
+      text-align: center;
+      font-size: 12px;
+      color: var(--muted);
+      padding: 8px 0 32px;
+    }
+    .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #ccc; margin-right: 6px; vertical-align: middle; }
+    .dot.green { background: var(--leaf); }
+
+    .btn-irrigate {
+      width: 100%;
+      background: #1A5276;
+      color: #AED6F1;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .btn-irrigate:hover { opacity: 0.85; }
+    .btn-irrigate:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .irrigate-result {
+      display: none;
+      border-radius: 10px;
+      padding: 20px 24px;
+      margin-top: 16px;
+      border: 1px solid #AED6F1;
+      background: #EAF4FB;
+    }
+    .irrigate-result.visible { display: block; }
+    .irrigate-result h3 {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #1A5276;
+      margin-bottom: 14px;
+    }
+    .irrigate-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .irr-stat { }
+    .irr-stat .irr-label {
+      font-size: 11px;
+      color: #5D6D7E;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .irr-stat .irr-value {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 22px;
+      font-weight: 600;
+      color: #1A5276;
+      margin: 4px 0 2px;
+    }
+    .irr-stat .irr-unit { font-size: 11px; color: #5D6D7E; }
+    .irr-message {
+      font-size: 13px;
+      color: #1A5276;
+      background: white;
+      border-radius: 8px;
+      padding: 12px 14px;
+      border-left: 3px solid #1A5276;
+      margin-top: 4px;
+    }
+    .irr-source {
+      font-size: 11px;
+      color: #7F8C8D;
+      margin-top: 10px;
+    }
+    .status-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      font-family: 'IBM Plex Mono', monospace;
+      margin-left: 8px;
+    }
+    .status-sufficient    { background: #D5F5E3; color: #1E8449; }
+    .status-low_deficit   { background: #FEF9E7; color: #B7950B; }
+    .status-moderate_deficit { background: #FDEBD0; color: #BA4A00; }
+    .status-high_deficit  { background: #FADBD8; color: #922B21; }
+      .container { grid-template-columns: 1fr; }
+      .results-panel { grid-column: 1; }
+      .result-grid { grid-template-columns: 1fr 1fr; }
+      .optimize-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo-mark">🌾</div>
+  <div>
+    <h1>CROP YIELD PREDICTOR</h1>
+    <p>ML-powered yield estimation &amp; input optimization</p>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- ── Input Form ── -->
+  <div class="card">
+    <div class="card-title">Crop &amp; Location</div>
+
+    <div class="field">
+      <label>Crop</label>
+      <select id="crop"><option value="">Loading crops...</option></select>
+    </div>
+    <div class="field">
+      <label>State</label>
+      <select id="state"><option value="">Loading states...</option></select>
+    </div>
+    <div class="field">
+      <label>Season</label>
+      <select id="season"><option value="">Loading seasons...</option></select>
+    </div>
+    <div class="field">
+      <label>Area (hectares)</label>
+      <input type="number" id="area" placeholder="e.g. 1000" min="0" />
+    </div>
+    <div class="field">
+      <label>Annual Rainfall (mm)</label>
+      <input type="number" id="rainfall" placeholder="e.g. 1200" min="0" />
+      <div class="field-hint">Average annual rainfall for the region</div>
+    </div>
+  </div>
+
+  <!-- ── Input Factors ── -->
+  <div class="card">
+    <div class="card-title">Input Factors</div>
+
+    <div class="field">
+      <label>Fertilizer (kg)</label>
+      <input type="number" id="fertilizer" placeholder="e.g. 50000" min="0" />
+      <div class="field-hint">Total fertilizer applied per season</div>
+    </div>
+    <div class="field">
+      <label>Pesticide (kg)</label>
+      <input type="number" id="pesticide" placeholder="e.g. 1000" min="0" />
+      <div class="field-hint">Total pesticide applied per season</div>
+    </div>
+
+    <div class="btn-group">
+      <button class="btn-predict" id="btnPredict" onclick="predict()">
+        Predict Yield
+      </button>
+      <button class="btn-optimize" id="btnOptimize" onclick="optimize()">
+        Optimize Inputs
+      </button>
+    </div>
+    <div class="btn-group" style="margin-top:10px">
+      <button class="btn-irrigate" id="btnIrrigate" onclick="irrigate()">
+        💧 Suggest Irrigation
+      </button>
+    </div>
+
+    <div class="error-box" id="errorBox"></div>
+  </div>
+
+  <!-- ── Results ── -->
+  <div class="results-panel card" id="resultsPanel">
+    <div class="card-title">Prediction Result</div>
+
+    <div class="result-grid">
+      <div class="result-stat">
+        <div class="stat-label">Predicted Yield</div>
+        <div class="stat-value" id="resPredYield">—</div>
+        <div class="stat-unit">tonnes / hectare</div>
+      </div>
+      <div class="result-stat">
+        <div class="stat-label">Crop</div>
+        <div class="stat-value" style="font-size:18px" id="resCrop">—</div>
+        <div class="stat-unit" id="resSeason">—</div>
+      </div>
+      <div class="result-stat">
+        <div class="stat-label">State</div>
+        <div class="stat-value" style="font-size:18px" id="resState">—</div>
+        <div class="stat-unit">location</div>
+      </div>
+    </div>
+
+    <!-- Irrigation result -->
+    <div class="irrigate-result" id="irrigateResult">
+      <h3>💧 Irrigation Suggestion <span class="status-badge" id="irrBadge"></span></h3>
+      <div class="irrigate-row">
+        <div class="irr-stat">
+          <div class="irr-label">Crop Water Demand</div>
+          <div class="irr-value" id="irrDemand">—</div>
+          <div class="irr-unit">mm / season</div>
+        </div>
+        <div class="irr-stat">
+          <div class="irr-label">Effective Rainfall</div>
+          <div class="irr-value" id="irrRain">—</div>
+          <div class="irr-unit">mm (70% of rainfall)</div>
+        </div>
+        <div class="irr-stat">
+          <div class="irr-label">Irrigation Needed</div>
+          <div class="irr-value" id="irrNeeded">—</div>
+          <div class="irr-unit">mm to supplement</div>
+        </div>
+      </div>
+      <div class="irr-message" id="irrMessage"></div>
+      <div class="irr-source" id="irrSource"></div>
+    </div>
+
+    <!-- Optimization result (shown only after clicking Optimize) -->
+    <div class="optimize-result" id="optimizeResult">
+      <h3>⚡ Optimization Suggestions</h3>
+      <div class="optimize-row">
+        <div class="opt-item">
+          <div class="opt-label">Fertilizer</div>
+          <div class="opt-current" id="optCurrFert">Current: —</div>
+          <div class="opt-best" id="optBestFert">→ —</div>
+        </div>
+        <div class="opt-item">
+          <div class="opt-label">Pesticide</div>
+          <div class="opt-current" id="optCurrPest">Current: —</div>
+          <div class="opt-best" id="optBestPest">→ —</div>
+        </div>
+        <div class="opt-item">
+          <div class="opt-label">Yield Increase</div>
+          <div class="opt-current" id="optCurrYield">Now: —</div>
+          <div class="opt-best" id="optBestYield">→ —</div>
+        </div>
+      </div>
+      <span class="improvement-badge" id="improvementBadge"></span>
+    </div>
+  </div>
+
+  <div class="api-status">
+    <span class="dot" id="statusDot"></span>
+    <span id="statusText">Connecting to API...</span>
+  </div>
+
+</div>
+
+<script>
+  const API = "http://127.0.0.1:5001";
+
+  // ── Load dropdown options from /options ───────────────────────────────────
+  async function loadOptions() {
+    try {
+      const res  = await fetch(`${API}/options`);
+      const data = await res.json();
+
+      populate("crop",   data.crops);
+      populate("state",  data.states);
+      populate("season", data.seasons);
+
+      document.getElementById("statusDot").classList.add("green");
+      document.getElementById("statusText").textContent = "API connected — ready to predict";
+    } catch {
+      document.getElementById("statusText").textContent = "Cannot reach API — make sure app.py is running";
+    }
+  }
+
+  function populate(id, items) {
+    const sel = document.getElementById(id);
+    sel.innerHTML = items.map(v => `<option value="${v}">${v}</option>`).join("");
+  }
+
+  // ── Collect form values ───────────────────────────────────────────────────
+  function getInputs() {
+    return {
+      crop      : document.getElementById("crop").value,
+      season    : document.getElementById("season").value,
+      state     : document.getElementById("state").value,
+      area      : parseFloat(document.getElementById("area").value),
+      rainfall  : parseFloat(document.getElementById("rainfall").value),
+      fertilizer: parseFloat(document.getElementById("fertilizer").value),
+      pesticide : parseFloat(document.getElementById("pesticide").value),
+    };
+  }
+
+  function validate(inputs) {
+    if (!inputs.crop || !inputs.season || !inputs.state) return "Please select Crop, Season, and State.";
+    if (isNaN(inputs.area)       || inputs.area <= 0)       return "Enter a valid Area (> 0).";
+    if (isNaN(inputs.rainfall)   || inputs.rainfall < 0)    return "Enter a valid Rainfall value.";
+    if (isNaN(inputs.fertilizer) || inputs.fertilizer < 0)  return "Enter a valid Fertilizer amount.";
+    if (isNaN(inputs.pesticide)  || inputs.pesticide < 0)   return "Enter a valid Pesticide amount.";
+    return null;
+  }
+
+  function showError(msg) {
+    const box = document.getElementById("errorBox");
+    box.textContent = msg;
+    box.classList.add("visible");
+  }
+  function hideError() {
+    document.getElementById("errorBox").classList.remove("visible");
+  }
+
+  function setLoading(btnId, loading, label) {
+    const btn = document.getElementById(btnId);
+    btn.disabled = loading;
+    btn.innerHTML = loading ? `<span class="spinner"></span>${label}` : label;
+  }
+
+  // ── Predict ───────────────────────────────────────────────────────────────
+  async function predict() {
+    hideError();
+    const inputs = getInputs();
+    const err = validate(inputs);
+    if (err) { showError(err); return; }
+
+    setLoading("btnPredict", true, "Predicting...");
+    try {
+      const res  = await fetch(`${API}/predict`, {
+        method : "POST",
+        headers: { "Content-Type": "application/json" },
+        body   : JSON.stringify(inputs),
+      });
+      const data = await res.json();
+
+      if (data.error) { showError(data.error); return; }
+
+      // Show results
+      document.getElementById("resPredYield").textContent = data.predicted_yield.toFixed(2);
+      document.getElementById("resCrop").textContent      = data.crop;
+      document.getElementById("resSeason").textContent    = data.season;
+      document.getElementById("resState").textContent     = data.state;
+      document.getElementById("optimizeResult").classList.remove("visible");
+      document.getElementById("resultsPanel").classList.add("visible");
+
+    } catch {
+      showError("Could not reach the API. Make sure app.py is running.");
+    } finally {
+      setLoading("btnPredict", false, "Predict Yield");
+    }
+  }
+
+  // ── Optimize ──────────────────────────────────────────────────────────────
+  async function optimize() {
+    hideError();
+    const inputs = getInputs();
+    const err = validate(inputs);
+    if (err) { showError(err); return; }
+
+    setLoading("btnOptimize", true, "Optimizing...");
+    try {
+      const res  = await fetch(`${API}/optimize`, {
+        method : "POST",
+        headers: { "Content-Type": "application/json" },
+        body   : JSON.stringify(inputs),
+      });
+      const data = await res.json();
+
+      if (data.error) { showError(data.error); return; }
+
+      // Fill predict section
+      document.getElementById("resPredYield").textContent = data.current.predicted_yield.toFixed(2);
+      document.getElementById("resCrop").textContent      = inputs.crop;
+      document.getElementById("resSeason").textContent    = inputs.season;
+      document.getElementById("resState").textContent     = inputs.state;
+
+      // Fill optimization section
+      document.getElementById("optCurrFert").textContent  = `Current: ${data.current.fertilizer.toLocaleString()} kg`;
+      document.getElementById("optBestFert").textContent  = `→ ${data.optimized.fertilizer.toLocaleString()} kg`;
+      document.getElementById("optCurrPest").textContent  = `Current: ${data.current.pesticide.toLocaleString()} kg`;
+      document.getElementById("optBestPest").textContent  = `→ ${data.optimized.pesticide.toLocaleString()} kg`;
+      document.getElementById("optCurrYield").textContent = `Now: ${data.current.predicted_yield.toFixed(2)} t/ha`;
+      document.getElementById("optBestYield").textContent = `→ ${data.optimized.predicted_yield.toFixed(2)} t/ha`;
+      document.getElementById("improvementBadge").textContent = `+${data.improvement_percent}% yield improvement`;
+
+      document.getElementById("optimizeResult").classList.add("visible");
+      document.getElementById("resultsPanel").classList.add("visible");
+
+    } catch {
+      showError("Could not reach the API. Make sure app.py is running.");
+    } finally {
+      setLoading("btnOptimize", false, "Optimize Inputs");
+    }
+  }
+
+  // ── Irrigate ──────────────────────────────────────────────────────────────
+  async function irrigate() {
+    hideError();
+    const inputs = getInputs();
+    if (!inputs.crop || !inputs.season) { showError("Please select Crop and Season first."); return; }
+    if (isNaN(inputs.rainfall) || inputs.rainfall < 0) { showError("Enter a valid Rainfall value."); return; }
+
+    setLoading("btnIrrigate", true, "Calculating...");
+    try {
+      const res  = await fetch(`${API}/irrigate`, {
+        method : "POST",
+        headers: { "Content-Type": "application/json" },
+        body   : JSON.stringify({ crop: inputs.crop, season: inputs.season, rainfall: inputs.rainfall }),
+      });
+      const data = await res.json();
+      if (data.error) { showError(data.error); return; }
+
+      document.getElementById("irrDemand").textContent  = data.crop_water_demand_mm;
+      document.getElementById("irrRain").textContent    = data.effective_rainfall_mm;
+      document.getElementById("irrNeeded").textContent  = data.irrigation_needed_mm;
+      document.getElementById("irrMessage").textContent = data.message;
+      document.getElementById("irrSource").textContent  = "Source: " + data.fao_source;
+
+      const badge = document.getElementById("irrBadge");
+      badge.textContent = data.status.replace("_", " ");
+      badge.className   = "status-badge status-" + data.status;
+
+      document.getElementById("irrigateResult").classList.add("visible");
+      document.getElementById("resultsPanel").classList.add("visible");
+
+    } catch {
+      showError("Could not reach the API. Make sure app.py is running.");
+    } finally {
+      setLoading("btnIrrigate", false, "💧 Suggest Irrigation");
+    }
+  }
+
+  // Init
+  loadOptions();
+</script>
+</body>
+</html>
